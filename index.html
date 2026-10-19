@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chamados de manutenção - UniMater</title>
+<meta name="theme-color" content="#11517C">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Chamados">
+<style>
+  :root {
+    --azul: #11517C;
+    --azul-claro: #247FB6;
+    --nevoa: #EEF4F9;
+    --papel: #FFFFFF;
+    --tinta: #14212B;
+    --tinta-suave: #4B5B68;
+    --linha: #D3DEE7;
+    --verde: #1E7B4F;
+    --ambar: #A85F00;
+    --erro: #B3261E;
+    --sombra-topo: env(safe-area-inset-top, 0px);
+    --sombra-base: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--tinta);
+    background: var(--nevoa);
+    min-height: 100vh;
+    padding-top: var(--sombra-topo);
+    padding-bottom: calc(76px + var(--sombra-base));
+    -webkit-text-size-adjust: 100%;
+  }
+
+  header {
+    background: var(--azul);
+    color: #fff;
+    padding: 18px 20px 22px;
+  }
+  .marca { display: flex; align-items: center; gap: 12px; max-width: 520px; margin: 0 auto; }
+  .marca img { width: 44px; height: 44px; border-radius: 8px; background: #fff; }
+  .marca h1 { font-size: 1.15rem; margin: 0; font-weight: 650; line-height: 1.2; }
+  .marca p { margin: 2px 0 0; font-size: .85rem; opacity: .85; }
+
+  main { max-width: 520px; margin: 0 auto; padding: 20px; }
+  .tela { display: none; }
+  .tela.ativa { display: block; }
+
+  h2 { font-size: 1.35rem; margin: 4px 0 6px; line-height: 1.25; }
+  .lead { color: var(--tinta-suave); margin: 0 0 20px; line-height: 1.45; }
+
+  label { display: block; font-weight: 600; margin: 16px 0 6px; font-size: .95rem; }
+  select, input {
+    width: 100%;
+    font: inherit;
+    font-size: 1rem;
+    padding: 13px 14px;
+    border: 1.5px solid var(--linha);
+    border-radius: 10px;
+    background: var(--papel);
+    color: var(--tinta);
+  }
+  select:focus, input:focus, button:focus-visible, .aba:focus-visible {
+    outline: 3px solid var(--azul-claro);
+    outline-offset: 2px;
+    border-color: var(--azul-claro);
+  }
+  .dica { font-size: .85rem; color: var(--tinta-suave); margin: 6px 0 0; line-height: 1.4; }
+
+  .botao {
+    display: block;
+    width: 100%;
+    margin-top: 24px;
+    padding: 16px;
+    font: inherit;
+    font-size: 1.08rem;
+    font-weight: 650;
+    color: #fff;
+    background: var(--azul);
+    border: 0;
+    border-radius: 12px;
+    cursor: pointer;
+  }
+  .botao:active { background: #0C3D5E; }
+  .botao[disabled] { opacity: .6; cursor: progress; }
+
+  .lembrar { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: .92rem; color: var(--tinta-suave); }
+  .lembrar input { width: 20px; height: 20px; padding: 0; }
+
+  .aviso {
+    margin-top: 22px;
+    padding: 12px 14px;
+    background: var(--papel);
+    border-left: 4px solid var(--azul-claro);
+    border-radius: 6px;
+    font-size: .9rem;
+    color: var(--tinta-suave);
+    line-height: 1.45;
+  }
+  .erro { border-left-color: var(--erro); color: var(--erro); }
+
+  /* Resultado da consulta */
+  .resultado { margin-top: 22px; background: var(--papel); border: 1.5px solid var(--linha); border-radius: 12px; padding: 18px; }
+  .resultado h3 { margin: 0 0 2px; font-size: 1.1rem; }
+  .resultado .meta { margin: 0 0 16px; color: var(--tinta-suave); font-size: .9rem; }
+  .etapas { list-style: none; margin: 0 0 8px; padding: 0; }
+  .etapas li { display: flex; align-items: center; gap: 12px; padding: 8px 0; color: var(--tinta-suave); position: relative; }
+  .etapas li::before {
+    content: "";
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--linha); background: var(--papel); flex: none;
+  }
+  .etapas li.feita { color: var(--tinta); }
+  .etapas li.feita::before { background: var(--azul); border-color: var(--azul); }
+  .etapas li.atual { color: var(--tinta); font-weight: 650; }
+  .etapas li.atual::before { background: var(--azul-claro); border-color: var(--azul-claro); box-shadow: 0 0 0 4px rgba(36,127,182,.2); }
+  .etapas li.final::before { background: var(--verde); border-color: var(--verde); }
+  .solucao { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--linha); }
+  .solucao strong { display: block; margin-bottom: 4px; }
+
+  /* Navegação inferior */
+  nav {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: var(--papel);
+    border-top: 1px solid var(--linha);
+    display: flex;
+    padding-bottom: var(--sombra-base);
+  }
+  .aba {
+    flex: 1; padding: 14px 8px 12px; background: none; border: 0;
+    font: inherit; font-size: .95rem; color: var(--tinta-suave); cursor: pointer;
+    border-top: 3px solid transparent;
+  }
+  .aba[aria-selected="true"] { color: var(--azul); font-weight: 650; border-top-color: var(--azul); }
+
+  .instalar { display: none; margin-top: 22px; }
+  .instalar.visivel { display: block; }
+  .botao-claro {
+    background: var(--papel); color: var(--azul); border: 1.5px solid var(--azul); margin-top: 10px; font-size: 1rem; padding: 13px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .tela.ativa { animation: entra .18s ease-out; }
+    @keyframes entra { from { opacity: 0; } to { opacity: 1; } }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="marca">
+    <img src="icons/icon-192.png" alt="">
+    <div>
+      <h1>Chamados de manutenção</h1>
+      <p>Salas de aula - UniMater</p>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ABRIR CHAMADO -->
+  <section id="tela-abrir" class="tela ativa" aria-labelledby="t-abrir">
+    <h2 id="t-abrir">Abrir um chamado</h2>
+    <p class="lead">Escolha a sala e abra o formulário. Ele já vem com a sala e o seu nome preenchidos.</p>
+
+    <label for="sala">Sala de aula</label>
+    <select id="sala">
+      <option value="">Selecione a sala</option>
+    </select>
+
+    <label for="professor">Seu nome completo e curso</label>
+    <input id="professor" type="text" autocomplete="name" placeholder="Ex.: Maria Souza - Direito">
+
+    <label class="lembrar"><input id="lembrar" type="checkbox" checked> Lembrar sala e nome neste aparelho</label>
+
+    <button id="btn-abrir" class="botao" type="button">Abrir formulário do chamado</button>
+
+    <div class="aviso">Depois de enviar, você recebe por e-mail o número do protocolo e um novo aviso quando o chamado for resolvido.</div>
+
+    <div id="bloco-instalar" class="instalar">
+      <button id="btn-instalar" class="botao botao-claro" type="button">Instalar este app no aparelho</button>
+    </div>
+  </section>
+
+  <!-- ACOMPANHAR -->
+  <section id="tela-acompanhar" class="tela" aria-labelledby="t-acomp">
+    <h2 id="t-acomp">Acompanhar um chamado</h2>
+    <p class="lead">Informe o protocolo que chegou no seu e-mail e o e-mail usado na abertura.</p>
+
+    <label for="protocolo">Número do protocolo</label>
+    <input id="protocolo" type="text" autocapitalize="characters" autocomplete="off" placeholder="CH-2026-0001">
+
+    <label for="email">E-mail usado no chamado</label>
+    <input id="email" type="email" autocomplete="email" placeholder="seu.nome@unimater.edu.br">
+
+    <button id="btn-consultar" class="botao" type="button">Consultar chamado</button>
+
+    <div id="saida" aria-live="polite"></div>
+  </section>
+
+</main>
+
+<nav role="tablist" aria-label="Seções do app">
+  <button class="aba" role="tab" id="aba-abrir" aria-selected="true" aria-controls="tela-abrir">Abrir chamado</button>
+  <button class="aba" role="tab" id="aba-acompanhar" aria-selected="false" aria-controls="tela-acompanhar">Acompanhar</button>
+</nav>
+
+<script>
+/* ============================================================
+   CONFIGURAÇÃO - é a única parte que você precisa preencher
+   ============================================================ */
+var CONFIG = {
+  // Endereço do formulário (termina em /viewform), sem os parâmetros depois do "?"
+  FORM_URL: 'https://docs.google.com/forms/d/e/1FAIpQLSfxQoSGr0aAtuqn_uInjUhcWn4K0NQ6JrQ1wjzt06_net0EuA/viewform',
+
+  // Códigos dos campos do formulário (aparecem no link pré-preenchido como entry.NUMEROS)
+  ENTRY_SALA: 'entry.1483746381',
+  ENTRY_PROFESSOR: 'entry.457100952',
+
+  // Endereço do App da Web do Apps Script (termina em /exec).
+  // Deixe vazio ('') para esconder a aba "Acompanhar".
+  CONSULTA_URL: 'https://script.google.com/macros/s/AKfycbxAmlZy1Q29rGSnBBt-wte4InjneVFGnqNq002by3Hbo41442P3ip5JQMk-PwsffKJh/exec'
+};
+
+/* Lista de salas: precisa ser idêntica às opções do formulário */
+var SALAS = [
+  'Sala 01','Sala 02','Sala 03','Sala 04','Sala 05','Sala 06','Sala 07','Sala 08','Sala 09',
+  'Sala 10','Sala 11','Sala 14','Sala 15','Sala 16','Sala 17','Sala 18','Sala 19','Sala 20',
+  'Sala 22','Sala 23','Sala 24','Sala 25','Sala 27','Sala 28','Sala 29','Sala 31','Sala 32',
+  'Sala 33','Sala 34','Sala 35','Sala 36','Sala 37','Sala 38','Sala 40','Sala 41','Sala 42',
+  'Sala 39/43','Sala 44','Sala 45','Sala 46','Sala 47','Sala 48','Sala 49','Sala 50','Sala 51',
+  'Sala 55/56','MET. ATIVAS','HIDRÁULICA','LAB INF 07','LAB INF 08','Mini Auditório',
+  'Sala 57 Psico.','Sala Maker','LAB INF. 01'
+];
+
+/* ---------- utilidades ---------- */
+function $(id) { return document.getElementById(id); }
+function guardar(chave, valor) { try { localStorage.setItem(chave, valor); } catch (e) {} }
+function ler(chave) { try { return localStorage.getItem(chave) || ''; } catch (e) { return ''; } }
+function apagar(chave) { try { localStorage.removeItem(chave); } catch (e) {} }
+
+/* ---------- salas ---------- */
+SALAS.forEach(function (nome) {
+  var o = document.createElement('option');
+  o.value = nome; o.textContent = nome;
+  $('sala').appendChild(o);
+});
+
+/* ---------- abas ---------- */
+function mostrar(qual) {
+  var abrir = qual === 'abrir';
+  $('tela-abrir').classList.toggle('ativa', abrir);
+  $('tela-acompanhar').classList.toggle('ativa', !abrir);
+  $('aba-abrir').setAttribute('aria-selected', String(abrir));
+  $('aba-acompanhar').setAttribute('aria-selected', String(!abrir));
+}
+$('aba-abrir').onclick = function () { mostrar('abrir'); };
+$('aba-acompanhar').onclick = function () { mostrar('acompanhar'); };
+
+if (!CONFIG.CONSULTA_URL) {
+  $('aba-acompanhar').style.display = 'none';
+  $('aba-abrir').style.borderTopColor = 'transparent';
+  document.querySelector('nav').style.display = 'none';
+  document.body.style.paddingBottom = 'env(safe-area-inset-bottom, 0px)';
+}
+
+/* ---------- dados lembrados ---------- */
+$('sala').value = ler('chamados.sala');
+$('professor').value = ler('chamados.professor');
+$('email').value = ler('chamados.email');
+$('lembrar').checked = ler('chamados.lembrar') !== 'nao';
+
+/* ---------- abrir formulário ---------- */
+$('btn-abrir').onclick = function () {
+  var sala = $('sala').value;
+  var professor = $('professor').value.trim();
+
+  if (!sala) { $('sala').focus(); alert('Escolha a sala de aula.'); return; }
+  if (!professor) { $('professor').focus(); alert('Informe seu nome completo e curso.'); return; }
+  if (CONFIG.FORM_URL.indexOf('COLE_AQUI') === 0) { alert('O app ainda não foi configurado com o endereço do formulário.'); return; }
+
+  if ($('lembrar').checked) {
+    guardar('chamados.sala', sala);
+    guardar('chamados.professor', professor);
+    guardar('chamados.lembrar', 'sim');
+  } else {
+    apagar('chamados.sala'); apagar('chamados.professor'); guardar('chamados.lembrar', 'nao');
+  }
+
+  var url = CONFIG.FORM_URL +
+    (CONFIG.FORM_URL.indexOf('?') === -1 ? '?' : '&') + 'usp=pp_url' +
+    '&' + encodeURIComponent(CONFIG.ENTRY_SALA) + '=' + encodeURIComponent(sala) +
+    '&' + encodeURIComponent(CONFIG.ENTRY_PROFESSOR) + '=' + encodeURIComponent(professor);
+
+  window.location.href = url;
+};
+
+/* ---------- consultar chamado ---------- */
+var ETAPAS = ['Recebido', 'Em atendimento', 'Resolvido'];
+
+function escapar(t) {
+  return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function mostrarErro(msg) {
+  $('saida').innerHTML = '<div class="aviso erro">' + escapar(msg) + '</div>';
+}
+
+function mostrarResultado(d) {
+  var indice = ETAPAS.indexOf(d.status);
+  var cancelado = d.status === 'Cancelado';
+  var html = '<div class="resultado">' +
+    '<h3>Protocolo ' + escapar(d.protocolo) + '</h3>' +
+    '<p class="meta">' + escapar(d.sala) + (d.abertura ? ' - aberto em ' + escapar(d.abertura) : '') + '</p>';
+
+  if (cancelado) {
+    html += '<p><strong>Chamado encerrado sem atendimento.</strong></p>';
+  } else {
+    html += '<ol class="etapas">';
+    ETAPAS.forEach(function (nome, i) {
+      var classe = '';
+      if (i < indice) classe = 'feita';
+      if (i === indice) classe = (i === ETAPAS.length - 1) ? 'atual final' : 'atual';
+      html += '<li class="' + classe + '">' + nome + '</li>';
+    });
+    html += '</ol>';
+  }
+
+  if (d.solucao) {
+    html += '<div class="solucao"><strong>' + (cancelado ? 'Motivo' : 'O que foi feito') + '</strong>' + escapar(d.solucao) + '</div>';
+  }
+  if (d.concluido) {
+    html += '<p class="meta" style="margin-top:12px">Concluído em ' + escapar(d.concluido) + '</p>';
+  }
+  html += '</div>';
+  $('saida').innerHTML = html;
+}
+
+$('btn-consultar').onclick = function () {
+  var protocolo = $('protocolo').value.trim().toUpperCase();
+  var email = $('email').value.trim();
+  if (!protocolo || !email) { mostrarErro('Preencha o protocolo e o e-mail.'); return; }
+
+  guardar('chamados.email', email);
+  var botao = $('btn-consultar');
+  botao.disabled = true; botao.textContent = 'Consultando...';
+  $('saida').innerHTML = '';
+
+  var url = CONFIG.CONSULTA_URL + '?protocolo=' + encodeURIComponent(protocolo) + '&email=' + encodeURIComponent(email);
+
+  fetch(url)
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d && d.ok) { mostrarResultado(d); }
+      else { mostrarErro('Não encontramos um chamado com esse protocolo e e-mail. Confira os dados no e-mail de confirmação.'); }
+    })
+    .catch(function () {
+      mostrarErro('Não foi possível consultar agora. Verifique a conexão e tente de novo.');
+    })
+    .finally(function () {
+      botao.disabled = false; botao.textContent = 'Consultar chamado';
+    });
+};
+
+/* ---------- instalação (Android/Chrome/Edge) ---------- */
+var eventoInstalar = null;
+window.addEventListener('beforeinstallprompt', function (e) {
+  e.preventDefault();
+  eventoInstalar = e;
+  $('bloco-instalar').classList.add('visivel');
+});
+$('btn-instalar').onclick = function () {
+  if (!eventoInstalar) return;
+  eventoInstalar.prompt();
+  eventoInstalar.userChoice.then(function () {
+    eventoInstalar = null;
+    $('bloco-instalar').classList.remove('visivel');
+  });
+};
+window.addEventListener('appinstalled', function () { $('bloco-instalar').classList.remove('visivel'); });
+
+/* ---------- funcionamento offline da casca do app ---------- */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
+</script>
+</body>
+</html>
