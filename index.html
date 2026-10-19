@@ -145,6 +145,40 @@
     background: var(--papel); color: var(--azul); border: 1.5px solid var(--azul); margin-top: 10px; font-size: 1rem; padding: 13px;
   }
 
+  /* Lista "Meus chamados" */
+  h3 { margin: 0; font-size: 1.1rem; }
+  h3.sub { margin-top: 28px; }
+  .lista-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+  .mini {
+    font: inherit; font-size: .92rem; font-weight: 600; color: var(--azul);
+    background: var(--papel); border: 1.5px solid var(--azul); border-radius: 8px;
+    padding: 8px 14px; cursor: pointer;
+  }
+  .mini[disabled] { opacity: .6; cursor: progress; }
+  .mini.perigo { color: var(--erro); border-color: var(--erro); margin-top: 14px; }
+  #lista-chamados { margin-top: 10px; }
+  .cartao { background: var(--papel); border: 1.5px solid var(--linha); border-radius: 12px; margin-bottom: 10px; }
+  .cartao summary {
+    list-style: none; cursor: pointer; padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .cartao summary::-webkit-details-marker { display: none; }
+  .cartao summary:focus-visible { outline: 3px solid var(--azul-claro); outline-offset: 2px; border-radius: 10px; }
+  .cartao-titulo { display: flex; flex-direction: column; min-width: 0; }
+  .cartao-titulo strong { font-size: 1rem; }
+  .cartao-sala { font-size: .88rem; color: var(--tinta-suave); }
+  .chip {
+    flex: none; font-size: .82rem; font-weight: 650; padding: 5px 10px; border-radius: 999px;
+    border: 1.5px solid currentColor; white-space: nowrap;
+  }
+  .chip-recebido { color: var(--ambar); }
+  .chip-atendimento { color: var(--azul-claro); }
+  .chip-resolvido { color: var(--verde); }
+  .chip-cancelado, .chip-outro { color: var(--tinta-suave); }
+  .cartao-corpo { padding: 0 16px 16px; border-top: 1px solid var(--linha); }
+  .cartao-corpo .meta { margin: 12px 0 8px; color: var(--tinta-suave); font-size: .9rem; }
+  .aviso-cartao { margin: 12px 0 0; font-size: .88rem; color: var(--erro); }
+
   @media (prefers-reduced-motion: no-preference) {
     .tela.ativa { animation: entra .18s ease-out; }
     @keyframes entra { from { opacity: 0; } to { opacity: 1; } }
@@ -191,8 +225,20 @@
 
   <!-- ACOMPANHAR -->
   <section id="tela-acompanhar" class="tela" aria-labelledby="t-acomp">
-    <h2 id="t-acomp">Acompanhar um chamado</h2>
-    <p class="lead">Informe o protocolo que chegou no seu e-mail e o e-mail usado na abertura.</p>
+    <h2 id="t-acomp">Acompanhar chamados</h2>
+    <p class="lead">Os chamados que você consultar ficam salvos neste aparelho, e o andamento é atualizado quando você abre esta tela.</p>
+
+    <div id="bloco-lista" hidden>
+      <div class="lista-topo">
+        <h3>Meus chamados</h3>
+        <button id="btn-atualizar" class="mini" type="button">Atualizar</button>
+      </div>
+      <p id="estado-lista" class="dica" aria-live="polite"></p>
+      <div id="lista-chamados"></div>
+    </div>
+
+    <h3 class="sub">Adicionar um chamado</h3>
+    <p class="dica">Digite uma vez o protocolo que chegou no seu e-mail. Depois ele fica na lista.</p>
 
     <label for="protocolo">Número do protocolo</label>
     <input id="protocolo" type="text" autocapitalize="characters" autocomplete="off" placeholder="CH-2026-0001">
@@ -200,7 +246,7 @@
     <label for="email">E-mail usado no chamado</label>
     <input id="email" type="email" autocomplete="email" placeholder="seu.nome@unimater.edu.br">
 
-    <button id="btn-consultar" class="botao" type="button">Consultar chamado</button>
+    <button id="btn-consultar" class="botao" type="button">Consultar e salvar</button>
 
     <div id="saida" aria-live="polite"></div>
   </section>
@@ -262,7 +308,7 @@ function mostrar(qual) {
   $('aba-acompanhar').setAttribute('aria-selected', String(!abrir));
 }
 $('aba-abrir').onclick = function () { mostrar('abrir'); };
-$('aba-acompanhar').onclick = function () { mostrar('acompanhar'); };
+$('aba-acompanhar').onclick = function () { mostrar('acompanhar'); atualizarSeNecessario(); };
 
 if (!CONFIG.CONSULTA_URL) {
   $('aba-acompanhar').style.display = 'none';
@@ -302,8 +348,10 @@ $('btn-abrir').onclick = function () {
   window.location.href = url;
 };
 
-/* ---------- consultar chamado ---------- */
+/* ---------- consultar e guardar chamados ---------- */
 var ETAPAS = ['Recebido', 'Em atendimento', 'Resolvido'];
+var CHAVE_LISTA = 'chamados.lista';
+var ultimaAtualizacao = 0;
 
 function escapar(t) {
   return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
@@ -311,65 +359,191 @@ function escapar(t) {
   });
 }
 
-function mostrarErro(msg) {
-  $('saida').innerHTML = '<div class="aviso erro">' + escapar(msg) + '</div>';
+function lerLista() {
+  try { var l = JSON.parse(ler(CHAVE_LISTA) || '[]'); return Array.isArray(l) ? l : []; }
+  catch (e) { return []; }
+}
+function gravarLista(lista) { guardar(CHAVE_LISTA, JSON.stringify(lista.slice(0, 20))); }
+
+function acharIndice(lista, protocolo) {
+  for (var i = 0; i < lista.length; i++) { if (lista[i].protocolo === protocolo) return i; }
+  return -1;
 }
 
-function mostrarResultado(d) {
-  var indice = ETAPAS.indexOf(d.status);
-  var cancelado = d.status === 'Cancelado';
-  var html = '<div class="resultado">' +
-    '<h3>Protocolo ' + escapar(d.protocolo) + '</h3>' +
-    '<p class="meta">' + escapar(d.sala) + (d.abertura ? ' - aberto em ' + escapar(d.abertura) : '') + '</p>';
-
-  if (cancelado) {
-    html += '<p><strong>Chamado encerrado sem atendimento.</strong></p>';
-  } else {
-    html += '<ol class="etapas">';
-    ETAPAS.forEach(function (nome, i) {
-      var classe = '';
-      if (i < indice) classe = 'feita';
-      if (i === indice) classe = (i === ETAPAS.length - 1) ? 'atual final' : 'atual';
-      html += '<li class="' + classe + '">' + nome + '</li>';
-    });
-    html += '</ol>';
-  }
-
-  if (d.solucao) {
-    html += '<div class="solucao"><strong>' + (cancelado ? 'Motivo' : 'O que foi feito') + '</strong>' + escapar(d.solucao) + '</div>';
-  }
-  if (d.concluido) {
-    html += '<p class="meta" style="margin-top:12px">Concluído em ' + escapar(d.concluido) + '</p>';
-  }
-  html += '</div>';
-  $('saida').innerHTML = html;
+function salvarChamado(d, email) {
+  var lista = lerLista();
+  var item = {
+    protocolo: d.protocolo, email: email, sala: d.sala, abertura: d.abertura,
+    status: d.status, solucao: d.solucao, concluido: d.concluido, aviso: ''
+  };
+  var i = acharIndice(lista, d.protocolo);
+  if (i >= 0) { lista[i] = item; } else { lista.unshift(item); }
+  gravarLista(lista);
 }
+
+function marcarNaoEncontrado(protocolo) {
+  var lista = lerLista();
+  var i = acharIndice(lista, protocolo);
+  if (i >= 0) { lista[i].aviso = 'Não encontrado no sistema. Se foi um teste, remova da lista.'; gravarLista(lista); }
+}
+
+function removerChamado(protocolo) {
+  var lista = lerLista();
+  var i = acharIndice(lista, protocolo);
+  if (i >= 0) { lista.splice(i, 1); gravarLista(lista); }
+}
+
+function buscar(protocolo, email) {
+  var url = CONFIG.CONSULTA_URL + '?protocolo=' + encodeURIComponent(protocolo) + '&email=' + encodeURIComponent(email);
+  return fetch(url).then(function (r) { return r.json(); });
+}
+
+function classeStatus(status) {
+  if (status === 'Recebido') return 'chip-recebido';
+  if (status === 'Em atendimento') return 'chip-atendimento';
+  if (status === 'Resolvido') return 'chip-resolvido';
+  if (status === 'Cancelado') return 'chip-cancelado';
+  return 'chip-outro';
+}
+
+function etapasHtml(status) {
+  if (status === 'Cancelado') return '<p><strong>Chamado encerrado sem atendimento.</strong></p>';
+  var indice = ETAPAS.indexOf(status);
+  var html = '<ol class="etapas">';
+  ETAPAS.forEach(function (nome, i) {
+    var classe = '';
+    if (i < indice) classe = 'feita';
+    if (i === indice) classe = (i === ETAPAS.length - 1) ? 'atual final' : 'atual';
+    html += '<li class="' + classe + '">' + nome + '</li>';
+  });
+  return html + '</ol>';
+}
+
+function cartaoHtml(c) {
+  var cancelado = c.status === 'Cancelado';
+  var html = '<details class="cartao" data-protocolo="' + escapar(c.protocolo) + '">' +
+    '<summary><span class="cartao-titulo"><strong>' + escapar(c.protocolo) + '</strong>' +
+    '<span class="cartao-sala">' + escapar(c.sala) + '</span></span>' +
+    '<span class="chip ' + classeStatus(c.status) + '">' + escapar(c.status || 'Sem status') + '</span></summary>' +
+    '<div class="cartao-corpo">' +
+    '<p class="meta">' + (c.abertura ? 'Aberto em ' + escapar(c.abertura) : '') + '</p>' +
+    etapasHtml(c.status);
+  if (c.solucao) {
+    html += '<div class="solucao"><strong>' + (cancelado ? 'Motivo' : 'O que foi feito') + '</strong>' + escapar(c.solucao) + '</div>';
+  }
+  if (c.concluido) { html += '<p class="meta">Concluído em ' + escapar(c.concluido) + '</p>'; }
+  if (c.aviso) { html += '<p class="aviso-cartao">' + escapar(c.aviso) + '</p>'; }
+  html += '<button class="mini perigo" type="button" data-remover="' + escapar(c.protocolo) + '">Remover da lista</button>' +
+    '</div></details>';
+  return html;
+}
+
+function desenharLista(abrirProtocolo) {
+  var lista = lerLista();
+  $('bloco-lista').hidden = lista.length === 0;
+  $('lista-chamados').innerHTML = lista.map(cartaoHtml).join('');
+  if (abrirProtocolo) {
+    var cartoes = document.querySelectorAll('#lista-chamados details');
+    for (var i = 0; i < cartoes.length; i++) {
+      if (cartoes[i].getAttribute('data-protocolo') === abrirProtocolo) {
+        cartoes[i].open = true;
+        cartoes[i].scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }
+}
+
+function hora() {
+  var d = new Date();
+  return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+}
+
+/* Atualiza o andamento. Sem "todos", só os que ainda estão em aberto. */
+function atualizarLista(todos) {
+  if (!CONFIG.CONSULTA_URL) return Promise.resolve();
+  var lista = lerLista();
+  var alvo = lista.filter(function (c) {
+    return todos || (c.status !== 'Resolvido' && c.status !== 'Cancelado');
+  });
+  if (!alvo.length) return Promise.resolve();
+
+  var falhou = false;
+  $('btn-atualizar').disabled = true;
+  $('estado-lista').textContent = 'Atualizando...';
+  ultimaAtualizacao = Date.now();
+
+  return Promise.all(alvo.map(function (c) {
+    return buscar(c.protocolo, c.email).then(function (d) {
+      if (d && d.ok) { salvarChamado(d, c.email); }
+      else { marcarNaoEncontrado(c.protocolo); }
+    }).catch(function () { falhou = true; });
+  })).then(function () {
+    var abertos = [];
+    var cartoes = document.querySelectorAll('#lista-chamados details');
+    for (var i = 0; i < cartoes.length; i++) { if (cartoes[i].open) abertos.push(cartoes[i].getAttribute('data-protocolo')); }
+    desenharLista();
+    cartoes = document.querySelectorAll('#lista-chamados details');
+    for (var j = 0; j < cartoes.length; j++) {
+      if (abertos.indexOf(cartoes[j].getAttribute('data-protocolo')) !== -1) cartoes[j].open = true;
+    }
+    $('estado-lista').textContent = falhou
+      ? 'Sem conexão no momento. Mostrando o último andamento salvo.'
+      : 'Atualizado às ' + hora() + '.';
+    $('btn-atualizar').disabled = false;
+  });
+}
+
+/* Chamada ao abrir a aba: não repete se acabou de atualizar */
+function atualizarSeNecessario() {
+  if (Date.now() - ultimaAtualizacao > 30000) { atualizarLista(false); }
+}
+
+function mostrarMensagem(msg, erro) {
+  $('saida').innerHTML = '<div class="aviso' + (erro ? ' erro' : '') + '">' + escapar(msg) + '</div>';
+}
+
+$('btn-atualizar').onclick = function () { atualizarLista(true); };
+
+$('lista-chamados').addEventListener('click', function (ev) {
+  var alvo = ev.target;
+  var protocolo = alvo && alvo.getAttribute ? alvo.getAttribute('data-remover') : null;
+  if (!protocolo) return;
+  removerChamado(protocolo);
+  desenharLista();
+});
 
 $('btn-consultar').onclick = function () {
   var protocolo = $('protocolo').value.trim().toUpperCase();
   var email = $('email').value.trim();
-  if (!protocolo || !email) { mostrarErro('Preencha o protocolo e o e-mail.'); return; }
+  if (!protocolo || !email) { mostrarMensagem('Preencha o protocolo e o e-mail.', true); return; }
 
   guardar('chamados.email', email);
   var botao = $('btn-consultar');
   botao.disabled = true; botao.textContent = 'Consultando...';
   $('saida').innerHTML = '';
 
-  var url = CONFIG.CONSULTA_URL + '?protocolo=' + encodeURIComponent(protocolo) + '&email=' + encodeURIComponent(email);
-
-  fetch(url)
-    .then(function (r) { return r.json(); })
+  buscar(protocolo, email)
     .then(function (d) {
-      if (d && d.ok) { mostrarResultado(d); }
-      else { mostrarErro('Não encontramos um chamado com esse protocolo e e-mail. Confira os dados no e-mail de confirmação.'); }
+      if (d && d.ok) {
+        salvarChamado(d, email);
+        desenharLista(d.protocolo);
+        $('protocolo').value = '';
+        mostrarMensagem('Chamado ' + d.protocolo + ' salvo na sua lista.', false);
+      } else {
+        mostrarMensagem('Não encontramos um chamado com esse protocolo e e-mail. Confira os dados no e-mail de confirmação.', true);
+      }
     })
     .catch(function () {
-      mostrarErro('Não foi possível consultar agora. Verifique a conexão e tente de novo.');
+      mostrarMensagem('Não foi possível consultar agora. Verifique a conexão e tente de novo.', true);
     })
     .finally(function () {
-      botao.disabled = false; botao.textContent = 'Consultar chamado';
+      botao.disabled = false; botao.textContent = 'Consultar e salvar';
     });
 };
+
+/* Ao carregar: mostra a lista salva e atualiza o que ainda está em aberto */
+desenharLista();
+if (CONFIG.CONSULTA_URL && lerLista().length) { atualizarLista(false); }
 
 /* ---------- instalação (Android/Chrome/Edge) ---------- */
 var eventoInstalar = null;
