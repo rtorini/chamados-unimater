@@ -1,5 +1,5 @@
 // Aumente o número da versão sempre que atualizar o app, para forçar a troca do cache.
-var VERSAO = 'chamados-v2';
+var VERSAO = 'chamados-v3';
 var ARQUIVOS = [
   './',
   './index.html',

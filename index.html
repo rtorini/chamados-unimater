@@ -179,6 +179,32 @@
   .cartao-corpo .meta { margin: 12px 0 8px; color: var(--tinta-suave); font-size: .9rem; }
   .aviso-cartao { margin: 12px 0 0; font-size: .88rem; color: var(--erro); }
 
+  /* Área da equipe */
+  [hidden] { display: none !important; }
+  .link { background: none; border: 0; padding: 8px 0; font: inherit; font-size: .9rem; color: var(--tinta-suave); text-decoration: underline; cursor: pointer; }
+  .rodape-equipe { text-align: center; margin: 18px 0 0; }
+  #botao-google { margin: 18px 0 8px; min-height: 44px; }
+  .filtros { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 12px; }
+  .filtro {
+    font: inherit; font-size: .9rem; font-weight: 600; color: var(--tinta-suave);
+    background: var(--papel); border: 1.5px solid var(--linha); border-radius: 999px;
+    padding: 8px 14px; cursor: pointer;
+  }
+  .filtro[aria-pressed="true"] { color: #fff; background: var(--azul); border-color: var(--azul); }
+  .acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .acoes .mini.cheio { color: #fff; background: var(--azul); }
+  .area-acao { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--linha); }
+  .area-acao textarea {
+    width: 100%; min-height: 96px; font: inherit; font-size: 1rem; padding: 12px;
+    border: 1.5px solid var(--linha); border-radius: 10px; resize: vertical; color: var(--tinta);
+  }
+  .area-acao textarea:focus { outline: 3px solid var(--azul-claro); outline-offset: 2px; border-color: var(--azul-claro); }
+  .texto { margin: 4px 0 10px; white-space: pre-line; line-height: 1.45; font-size: .95rem; }
+  .linha { margin: 10px 0 0; font-size: .92rem; line-height: 1.4; }
+  .linha strong { display: block; font-size: .82rem; color: var(--tinta-suave); text-transform: none; }
+  #equipe-msg .aviso { margin-top: 12px; }
+  .vazio { text-align: center; color: var(--tinta-suave); padding: 26px 8px; }
+
   @media (prefers-reduced-motion: no-preference) {
     .tela.ativa { animation: entra .18s ease-out; }
     @keyframes entra { from { opacity: 0; } to { opacity: 1; } }
@@ -221,6 +247,8 @@
     <div id="bloco-instalar" class="instalar">
       <button id="btn-instalar" class="botao botao-claro" type="button">Instalar este app no aparelho</button>
     </div>
+
+    <p class="rodape-equipe" id="rodape-equipe" hidden><button id="link-equipe" class="link" type="button">Área da equipe</button></p>
   </section>
 
   <!-- ACOMPANHAR -->
@@ -251,11 +279,47 @@
     <div id="saida" aria-live="polite"></div>
   </section>
 
+  <!-- ÁREA DA EQUIPE -->
+  <section id="tela-equipe" class="tela" aria-labelledby="t-equipe">
+    <h2 id="t-equipe">Área da equipe</h2>
+
+    <div id="equipe-login">
+      <p class="lead">Acesso restrito à equipe de manutenção. Entre com a sua conta Google, Gmail ou institucional.</p>
+      <div id="botao-google"></div>
+      <div id="equipe-msg" aria-live="polite"></div>
+      <p><button id="voltar-equipe" class="link" type="button">Voltar ao app</button></p>
+    </div>
+
+    <div id="equipe-painel" hidden>
+      <div class="lista-topo">
+        <div><strong id="equipe-nome"></strong><br><span class="dica" id="equipe-email"></span></div>
+        <button id="btn-sair" class="mini" type="button">Sair</button>
+      </div>
+
+      <div class="filtros" role="group" aria-label="Filtrar chamados">
+        <button class="filtro" type="button" data-filtro="abertos" aria-pressed="true">Em aberto</button>
+        <button class="filtro" type="button" data-filtro="resolvidos" aria-pressed="false">Resolvidos</button>
+        <button class="filtro" type="button" data-filtro="cancelados" aria-pressed="false">Cancelados</button>
+        <button class="filtro" type="button" data-filtro="todos" aria-pressed="false">Todos</button>
+      </div>
+
+      <label for="busca" class="dica" style="margin:0 0 6px;display:block">Buscar</label>
+      <input id="busca" type="search" placeholder="Sala, protocolo ou nome" autocomplete="off">
+
+      <div class="lista-topo" style="margin-top:14px">
+        <span id="equipe-estado" class="dica" aria-live="polite"></span>
+        <button id="btn-recarregar" class="mini" type="button">Atualizar</button>
+      </div>
+      <div id="equipe-lista"></div>
+    </div>
+  </section>
+
 </main>
 
 <nav role="tablist" aria-label="Seções do app">
   <button class="aba" role="tab" id="aba-abrir" aria-selected="true" aria-controls="tela-abrir">Abrir chamado</button>
   <button class="aba" role="tab" id="aba-acompanhar" aria-selected="false" aria-controls="tela-acompanhar">Acompanhar</button>
+  <button class="aba" role="tab" id="aba-equipe" aria-selected="false" aria-controls="tela-equipe" hidden>Equipe</button>
 </nav>
 
 <script>
@@ -272,7 +336,11 @@ var CONFIG = {
 
   // Endereço do App da Web do Apps Script (termina em /exec).
   // Deixe vazio ('') para esconder a aba "Acompanhar".
-  CONSULTA_URL: 'https://script.google.com/macros/s/AKfycbxAmlZy1Q29rGSnBBt-wte4InjneVFGnqNq002by3Hbo41442P3ip5JQMk-PwsffKJh/exec'
+  CONSULTA_URL: 'https://script.google.com/macros/s/AKfycbxAmlZy1Q29rGSnBBt-wte4InjneVFGnqNq002by3Hbo41442P3ip5JQMk-PwsffKJh/exec',
+
+  // ID de cliente do login Google (termina em .apps.googleusercontent.com).
+  // Deixe vazio ('') para desligar a área da equipe.
+  GOOGLE_CLIENT_ID: '180935129197-r4df4m7icbn2e5aed3gismkm9qnvn1q7.apps.googleusercontent.com'
 };
 
 /* Lista de salas: precisa ser idêntica às opções do formulário */
@@ -301,14 +369,14 @@ SALAS.forEach(function (nome) {
 
 /* ---------- abas ---------- */
 function mostrar(qual) {
-  var abrir = qual === 'abrir';
-  $('tela-abrir').classList.toggle('ativa', abrir);
-  $('tela-acompanhar').classList.toggle('ativa', !abrir);
-  $('aba-abrir').setAttribute('aria-selected', String(abrir));
-  $('aba-acompanhar').setAttribute('aria-selected', String(!abrir));
+  ['abrir', 'acompanhar', 'equipe'].forEach(function (nome) {
+    $('tela-' + nome).classList.toggle('ativa', nome === qual);
+    $('aba-' + nome).setAttribute('aria-selected', String(nome === qual));
+  });
 }
 $('aba-abrir').onclick = function () { mostrar('abrir'); };
 $('aba-acompanhar').onclick = function () { mostrar('acompanhar'); atualizarSeNecessario(); };
+$('aba-equipe').onclick = function () { abrirEquipe(); };
 
 if (!CONFIG.CONSULTA_URL) {
   $('aba-acompanhar').style.display = 'none';
@@ -544,6 +612,261 @@ $('btn-consultar').onclick = function () {
 /* Ao carregar: mostra a lista salva e atualiza o que ainda está em aberto */
 desenharLista();
 if (CONFIG.CONSULTA_URL && lerLista().length) { atualizarLista(false); }
+
+/* ---------- área da equipe ---------- */
+var equipe = { token: '', pessoa: null, chamados: [], filtro: 'abertos', googlePronto: false, carregando: false };
+var ERROS_EQUIPE = {
+  solucao_obrigatoria: 'Escreva o que foi feito antes de confirmar.',
+  planilha_mudou: 'A planilha mudou. Atualize a lista e tente de novo.',
+  mesmo_status: 'Este chamado já está nesse status. Atualize a lista.',
+  chamado_encerrado: 'Este chamado já foi encerrado por outra pessoa. Atualize a lista.',
+  ocupado: 'O sistema está ocupado. Tente de novo em instantes.',
+  nao_configurado: 'A área da equipe ainda não foi configurada no servidor.',
+  falha_interna: 'Ocorreu um erro no servidor. Tente de novo.'
+};
+
+function equipeAtiva() { return !!(CONFIG.GOOGLE_CLIENT_ID && CONFIG.CONSULTA_URL); }
+
+function msgEquipe(texto, erro) {
+  $('equipe-msg').innerHTML = texto ? '<div class="aviso' + (erro ? ' erro' : '') + '">' + escapar(texto) + '</div>' : '';
+}
+
+/* Carrega o script do Google só quando a área da equipe é aberta */
+function carregarGoogle(depois) {
+  if (window.google && google.accounts && google.accounts.id) { depois(); return; }
+  if (document.getElementById('gsi-script')) { setTimeout(function () { carregarGoogle(depois); }, 300); return; }
+  var s = document.createElement('script');
+  s.id = 'gsi-script'; s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+  s.onload = depois;
+  s.onerror = function () { msgEquipe('Não foi possível carregar o login do Google. Verifique a conexão.', true); };
+  document.head.appendChild(s);
+}
+
+function iniciarGoogle() {
+  if (equipe.googlePronto) return;
+  equipe.googlePronto = true;
+  google.accounts.id.initialize({
+    client_id: CONFIG.GOOGLE_CLIENT_ID,
+    callback: aoReceberCredencial,
+    auto_select: true,
+    cancel_on_tap_outside: false
+  });
+  google.accounts.id.renderButton($('botao-google'), {
+    theme: 'outline', size: 'large', text: 'signin_with', locale: 'pt-BR', shape: 'rectangular'
+  });
+  if (ler('chamados.equipe') === '1') { try { google.accounts.id.prompt(); } catch (e) {} }
+}
+
+function abrirEquipe() {
+  mostrar('equipe');
+  if (equipe.pessoa) { carregarChamados(); return; }
+  carregarGoogle(iniciarGoogle);
+}
+
+function api(acao, dados) {
+  var corpo = { acao: acao, token: equipe.token };
+  for (var k in (dados || {})) { corpo[k] = dados[k]; }
+  // Corpo em texto simples: evita a verificação prévia (preflight) do navegador.
+  return fetch(CONFIG.CONSULTA_URL, { method: 'POST', body: JSON.stringify(corpo) })
+    .then(function (r) { return r.json(); });
+}
+
+function aoReceberCredencial(resposta) {
+  equipe.token = resposta.credential || '';
+  msgEquipe('Verificando o seu acesso...', false);
+  api('eu').then(function (d) {
+    if (d && d.ok) {
+      equipe.pessoa = d;
+      guardar('chamados.equipe', '1');
+      $('aba-equipe').hidden = false;
+      $('equipe-nome').textContent = d.nome;
+      $('equipe-email').textContent = d.email;
+      $('equipe-login').hidden = true;
+      $('equipe-painel').hidden = false;
+      mostrar('equipe');
+      carregarChamados();
+    } else if (d && d.erro === 'sem_permissao') {
+      sairEquipe(false);
+      msgEquipe('A conta ' + d.email + ' não está autorizada. Peça para ser adicionada à aba Equipe da planilha.', true);
+    } else if (d && d.erro === 'login_invalido') {
+      sairEquipe(false);
+      msgEquipe('Não foi possível validar o login. Tente entrar de novo.', true);
+    } else {
+      sairEquipe(false);
+      msgEquipe(ERROS_EQUIPE[d && d.erro] || 'Não foi possível entrar agora.', true);
+    }
+  }).catch(function () {
+    sairEquipe(false);
+    msgEquipe('Sem conexão com o servidor. Tente de novo.', true);
+  });
+}
+
+function sairEquipe(limparMarca) {
+  equipe.token = ''; equipe.pessoa = null; equipe.chamados = [];
+  if (limparMarca) { apagar('chamados.equipe'); $('aba-equipe').hidden = true; }
+  $('equipe-painel').hidden = true;
+  $('equipe-login').hidden = false;
+  $('equipe-lista').innerHTML = '';
+  try { google.accounts.id.disableAutoSelect(); } catch (e) {}
+}
+
+/* A sessão (token) vale cerca de 1 hora; ao expirar, pede o login de novo */
+function sessaoExpirou() {
+  sairEquipe(false);
+  msgEquipe('Sua sessão expirou. Entre com o Google de novo.', true);
+  if (window.google && google.accounts && google.accounts.id) { try { google.accounts.id.prompt(); } catch (e) {} }
+}
+
+function carregarChamados(mensagemFinal) {
+  if (equipe.carregando) return;
+  equipe.carregando = true;
+  $('btn-recarregar').disabled = true;
+  $('equipe-estado').textContent = 'Carregando...';
+  api('listar').then(function (d) {
+    if (d && d.ok) {
+      equipe.chamados = d.chamados || [];
+      desenharEquipe();
+      $('equipe-estado').textContent = mensagemFinal || ('Atualizado às ' + hora() + '.');
+    } else if (d && (d.erro === 'login_invalido' || d.erro === 'sem_permissao')) {
+      sessaoExpirou();
+    } else {
+      $('equipe-estado').textContent = ERROS_EQUIPE[d && d.erro] || 'Não foi possível carregar.';
+    }
+  }).catch(function () {
+    $('equipe-estado').textContent = 'Sem conexão. Mostrando o que já estava na tela.';
+  }).finally(function () {
+    equipe.carregando = false;
+    $('btn-recarregar').disabled = false;
+  });
+}
+
+function passaFiltro(c) {
+  var s = c.status || 'Recebido';
+  if (equipe.filtro === 'abertos') return s === 'Recebido' || s === 'Em atendimento';
+  if (equipe.filtro === 'resolvidos') return s === 'Resolvido';
+  if (equipe.filtro === 'cancelados') return s === 'Cancelado';
+  return true;
+}
+
+function passaBusca(c) {
+  var t = $('busca').value.trim().toLowerCase();
+  if (!t) return true;
+  return [c.protocolo, c.sala, c.solicitante, c.email].join(' ').toLowerCase().indexOf(t) !== -1;
+}
+
+function cartaoEquipeHtml(c) {
+  var aberto = c.status === 'Recebido' || c.status === 'Em atendimento';
+  var html = '<details class="cartao" data-linha="' + c.linha + '" data-protocolo="' + escapar(c.protocolo) + '">' +
+    '<summary><span class="cartao-titulo"><strong>' + escapar(c.protocolo || 'Sem protocolo') + '</strong>' +
+    '<span class="cartao-sala">' + escapar(c.sala) + '</span></span>' +
+    '<span class="chip ' + classeStatus(c.status) + '">' + escapar(c.status) + '</span></summary>' +
+    '<div class="cartao-corpo">' +
+    '<p class="meta">' + (c.abertura ? 'Aberto em ' + escapar(c.abertura) : '') + '</p>' +
+    '<p class="linha"><strong>Solicitante</strong>' + escapar(c.solicitante || '-') + (c.email ? '<br>' + escapar(c.email) : '') + '</p>' +
+    '<p class="linha"><strong>Itens reportados</strong></p><p class="texto">' + escapar(c.itens || '-') + '</p>';
+  if (c.responsavel) { html += '<p class="linha"><strong>Responsável</strong>' + escapar(c.responsavel) + '</p>'; }
+  if (c.solucao) { html += '<div class="solucao"><strong>' + (c.status === 'Cancelado' ? 'Motivo' : 'O que foi feito') + '</strong>' + escapar(c.solucao) + '</div>'; }
+  if (c.concluido) { html += '<p class="meta">Concluído em ' + escapar(c.concluido) + '</p>'; }
+
+  if (aberto) {
+    html += '<div class="acoes">';
+    if (c.status === 'Recebido') { html += '<button class="mini cheio" type="button" data-acao="assumir">Assumir</button>'; }
+    html += '<button class="mini" type="button" data-acao="resolver">Resolver</button>' +
+      '<button class="mini perigo" type="button" data-acao="cancelar" style="margin-top:0">Cancelar chamado</button></div>' +
+      '<div class="area-acao" hidden>' +
+      '<label class="rotulo-acao" style="margin-top:0"></label>' +
+      '<textarea maxlength="1500" aria-label="Comentário"></textarea>' +
+      '<div class="acoes"><button class="mini cheio" type="button" data-acao="confirmar">Confirmar e avisar o professor</button>' +
+      '<button class="mini" type="button" data-acao="voltar">Voltar</button></div></div>';
+  }
+  return html + '</div></details>';
+}
+
+function desenharEquipe() {
+  var abertos = [];
+  var atuais = document.querySelectorAll('#equipe-lista details');
+  for (var i = 0; i < atuais.length; i++) { if (atuais[i].open) abertos.push(atuais[i].getAttribute('data-protocolo') + '|' + atuais[i].getAttribute('data-linha')); }
+
+  var lista = equipe.chamados.filter(function (c) { return passaFiltro(c) && passaBusca(c); });
+  $('equipe-lista').innerHTML = lista.length
+    ? lista.map(cartaoEquipeHtml).join('')
+    : '<p class="vazio">Nenhum chamado nesta visualização.</p>';
+
+  var novos = document.querySelectorAll('#equipe-lista details');
+  for (var j = 0; j < novos.length; j++) {
+    if (abertos.indexOf(novos[j].getAttribute('data-protocolo') + '|' + novos[j].getAttribute('data-linha')) !== -1) novos[j].open = true;
+  }
+}
+
+function enviarAtualizacao(cartao, status, solucao, botao) {
+  var linha = Number(cartao.getAttribute('data-linha'));
+  var protocolo = cartao.getAttribute('data-protocolo');
+  var botoes = cartao.querySelectorAll('button');
+  for (var i = 0; i < botoes.length; i++) { botoes[i].disabled = true; }
+  $('equipe-estado').textContent = 'Salvando...';
+
+  api('atualizar', { linha: linha, protocolo: protocolo, status: status, solucao: solucao || '' })
+    .then(function (d) {
+      if (d && d.ok) {
+        carregarChamados((protocolo || 'Chamado') + ' atualizado.' +
+          (d.avisoEnviado ? ' O professor foi avisado por e-mail.' : ' Não foi possível enviar o e-mail de aviso.'));
+      } else if (d && (d.erro === 'login_invalido' || d.erro === 'sem_permissao')) {
+        sessaoExpirou();
+      } else {
+        for (var k = 0; k < botoes.length; k++) { botoes[k].disabled = false; }
+        $('equipe-estado').textContent = ERROS_EQUIPE[d && d.erro] || 'Não foi possível salvar.';
+      }
+    })
+    .catch(function () {
+      for (var k = 0; k < botoes.length; k++) { botoes[k].disabled = false; }
+      $('equipe-estado').textContent = 'Sem conexão. Nada foi alterado.';
+    });
+}
+
+$('equipe-lista').addEventListener('click', function (ev) {
+  var alvo = ev.target;
+  var acao = alvo && alvo.getAttribute ? alvo.getAttribute('data-acao') : null;
+  if (!acao) return;
+  var cartao = alvo.closest('details');
+  var area = cartao.querySelector('.area-acao');
+
+  if (acao === 'assumir') {
+    if (window.confirm('Assumir este chamado e avisar o professor que está em atendimento?')) {
+      enviarAtualizacao(cartao, 'Em atendimento', '', alvo);
+    }
+  } else if (acao === 'resolver' || acao === 'cancelar') {
+    area.setAttribute('data-status', acao === 'resolver' ? 'Resolvido' : 'Cancelado');
+    area.querySelector('.rotulo-acao').textContent = acao === 'resolver' ? 'O que foi feito?' : 'Motivo do cancelamento';
+    area.hidden = false;
+    area.querySelector('textarea').focus();
+  } else if (acao === 'voltar') {
+    area.hidden = true;
+  } else if (acao === 'confirmar') {
+    var texto = area.querySelector('textarea').value.trim();
+    if (!texto) { $('equipe-estado').textContent = ERROS_EQUIPE.solucao_obrigatoria; area.querySelector('textarea').focus(); return; }
+    enviarAtualizacao(cartao, area.getAttribute('data-status'), texto, alvo);
+  }
+});
+
+var filtros = document.querySelectorAll('.filtro');
+for (var f = 0; f < filtros.length; f++) {
+  filtros[f].addEventListener('click', function () {
+    equipe.filtro = this.getAttribute('data-filtro');
+    var todos = document.querySelectorAll('.filtro');
+    for (var i = 0; i < todos.length; i++) { todos[i].setAttribute('aria-pressed', String(todos[i] === this)); }
+    desenharEquipe();
+  });
+}
+$('busca').addEventListener('input', desenharEquipe);
+$('btn-recarregar').onclick = carregarChamados;
+$('btn-sair').onclick = function () { sairEquipe(true); mostrar('abrir'); };
+$('voltar-equipe').onclick = function () { mostrar('abrir'); };
+$('link-equipe').onclick = function () { abrirEquipe(); };
+
+if (equipeAtiva()) {
+  $('rodape-equipe').hidden = false;
+  if (ler('chamados.equipe') === '1') { $('aba-equipe').hidden = false; }
+}
 
 /* ---------- instalação (Android/Chrome/Edge) ---------- */
 var eventoInstalar = null;
