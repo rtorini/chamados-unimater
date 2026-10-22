@@ -205,6 +205,29 @@
   #equipe-msg .aviso { margin-top: 12px; }
   .vazio { text-align: center; color: var(--tinta-suave); padding: 26px 8px; }
 
+  /* Novidades e avaliações */
+  .pino { display: inline-block; min-width: 18px; height: 18px; line-height: 18px; margin-left: 6px; padding: 0 5px;
+    font-size: .75rem; font-weight: 700; color: #fff; background: var(--erro); border-radius: 999px; vertical-align: middle; }
+  .faixa { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 20px;
+    background: #FFF4D6; color: #5A3B00; border-bottom: 1px solid #F0D79A; font-size: .92rem; }
+  .faixa .mini { flex: none; }
+  .direita { display: flex; align-items: center; gap: 8px; flex: none; }
+  .etiqueta-nova { font-size: .75rem; font-weight: 700; color: #5A3B00; background: #FFE9A8; border-radius: 6px; padding: 3px 7px; }
+  .cartao.novo { border-color: var(--azul-claro); box-shadow: 0 0 0 2px rgba(36,127,182,.18); }
+  .pesquisa { background: var(--papel); border: 1.5px solid var(--azul-claro); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+  .pesquisa-titulo { margin: 0 0 10px; font-weight: 650; }
+  .pesquisa-atend { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--linha); }
+  .notas { display: flex; gap: 8px; }
+  .notas button { flex: 1; font: inherit; font-size: 1.05rem; font-weight: 650; color: var(--azul); background: var(--papel);
+    border: 1.5px solid var(--linha); border-radius: 10px; padding: 12px 0; cursor: pointer; }
+  .notas button[aria-pressed="true"] { color: #fff; background: var(--azul); border-color: var(--azul); }
+  .notas button:focus-visible { outline: 3px solid var(--azul-claro); outline-offset: 2px; }
+  .notas-legenda { display: flex; justify-content: space-between; font-size: .8rem; color: var(--tinta-suave); margin: 6px 2px 12px; }
+  .pesquisa textarea, .pesquisa-atend textarea { width: 100%; min-height: 84px; font: inherit; font-size: 1rem; padding: 12px; margin-top: 6px;
+    border: 1.5px solid var(--linha); border-radius: 10px; resize: vertical; color: var(--tinta); background: var(--papel); }
+  .pesquisa textarea:focus, .pesquisa-atend textarea:focus { outline: 3px solid var(--azul-claro); outline-offset: 2px; border-color: var(--azul-claro); }
+  .rotulo-acao { display: block; font-weight: 600; font-size: .92rem; margin: 10px 0 0; }
+
   @media (prefers-reduced-motion: no-preference) {
     .tela.ativa { animation: entra .18s ease-out; }
     @keyframes entra { from { opacity: 0; } to { opacity: 1; } }
@@ -223,10 +246,30 @@
   </div>
 </header>
 
+<div id="faixa-novidades" class="faixa" role="status" hidden>
+  <span id="faixa-texto"></span>
+  <button id="faixa-ver" class="mini" type="button">Ver</button>
+</div>
+
 <main>
 
   <!-- ABRIR CHAMADO -->
   <section id="tela-abrir" class="tela ativa" aria-labelledby="t-abrir">
+    <div id="avaliar-app" class="pesquisa" hidden>
+      <div id="avaliar-app-corpo">
+        <p class="pesquisa-titulo">Como foi abrir o chamado pelo app?</p>
+        <div id="avaliar-app-notas"></div>
+        <div id="avaliar-app-detalhe" hidden>
+          <label for="avaliar-app-texto" class="rotulo-acao">Quer contar mais? (opcional)</label>
+          <textarea id="avaliar-app-texto" maxlength="500"></textarea>
+          <p class="dica">Sua resposta é anônima.</p>
+          <button id="avaliar-app-enviar" class="botao" type="button" style="margin-top:12px">Enviar avaliação</button>
+        </div>
+        <button id="avaliar-app-depois" class="link" type="button">Agora não</button>
+      </div>
+      <p id="avaliar-app-msg" class="dica" aria-live="polite"></p>
+    </div>
+
     <h2 id="t-abrir">Abrir um chamado</h2>
     <p class="lead">Escolha a sala e abra o formulário. Ele já vem com a sala e o seu nome preenchidos.</p>
 
@@ -262,6 +305,7 @@
         <button id="btn-atualizar" class="mini" type="button">Atualizar</button>
       </div>
       <p id="estado-lista" class="dica" aria-live="polite"></p>
+      <button id="btn-visto-todos" class="link" type="button" hidden>Marcar tudo como visto</button>
       <div id="lista-chamados"></div>
     </div>
 
@@ -296,6 +340,11 @@
         <button id="btn-sair" class="mini" type="button">Sair</button>
       </div>
 
+      <details id="equipe-avaliacoes" class="cartao" style="margin-top:14px">
+        <summary><span class="cartao-titulo"><strong>Avaliações dos usuários</strong><span class="cartao-sala" id="aval-resumo">Carregando...</span></span></summary>
+        <div class="cartao-corpo" id="aval-corpo"></div>
+      </details>
+
       <div class="filtros" role="group" aria-label="Filtrar chamados">
         <button class="filtro" type="button" data-filtro="abertos" aria-pressed="true">Em aberto</button>
         <button class="filtro" type="button" data-filtro="resolvidos" aria-pressed="false">Resolvidos</button>
@@ -318,7 +367,7 @@
 
 <nav role="tablist" aria-label="Seções do app">
   <button class="aba" role="tab" id="aba-abrir" aria-selected="true" aria-controls="tela-abrir">Abrir chamado</button>
-  <button class="aba" role="tab" id="aba-acompanhar" aria-selected="false" aria-controls="tela-acompanhar">Acompanhar</button>
+  <button class="aba" role="tab" id="aba-acompanhar" aria-selected="false" aria-controls="tela-acompanhar">Acompanhar<span id="pino-novidades" class="pino" hidden></span></button>
   <button class="aba" role="tab" id="aba-equipe" aria-selected="false" aria-controls="tela-equipe" hidden>Equipe</button>
 </nav>
 
@@ -373,6 +422,7 @@ function mostrar(qual) {
     $('tela-' + nome).classList.toggle('ativa', nome === qual);
     $('aba-' + nome).setAttribute('aria-selected', String(nome === qual));
   });
+  atualizarNovidades();
 }
 $('aba-abrir').onclick = function () { mostrar('abrir'); };
 $('aba-acompanhar').onclick = function () { mostrar('acompanhar'); atualizarSeNecessario(); };
@@ -413,6 +463,7 @@ $('btn-abrir').onclick = function () {
     '&' + encodeURIComponent(CONFIG.ENTRY_SALA) + '=' + encodeURIComponent(sala) +
     '&' + encodeURIComponent(CONFIG.ENTRY_PROFESSOR) + '=' + encodeURIComponent(professor);
 
+  if (CONFIG.CONSULTA_URL) { guardar('chamados.abriuEm', String(Date.now())); }
   window.location.href = url;
 };
 
@@ -440,13 +491,32 @@ function acharIndice(lista, protocolo) {
 
 function salvarChamado(d, email) {
   var lista = lerLista();
+  var i = acharIndice(lista, d.protocolo);
+  var antigo = i >= 0 ? lista[i] : null;
   var item = {
     protocolo: d.protocolo, email: email, sala: d.sala, abertura: d.abertura,
-    status: d.status, solucao: d.solucao, concluido: d.concluido, aviso: ''
+    status: d.status, solucao: d.solucao, concluido: d.concluido, aviso: '',
+    // último status que a pessoa já viu: serve para avisar quando houver novidade
+    statusVisto: antigo ? (antigo.statusVisto || antigo.status) : d.status,
+    avaliado: !!(d.avaliado || (antigo && antigo.avaliado))
   };
-  var i = acharIndice(lista, d.protocolo);
   if (i >= 0) { lista[i] = item; } else { lista.unshift(item); }
   gravarLista(lista);
+}
+
+function temNovidade(c) { return c.status !== (c.statusVisto || c.status); }
+
+function marcarVisto(protocolo) {
+  var lista = lerLista();
+  var i = acharIndice(lista, protocolo);
+  if (i >= 0 && temNovidade(lista[i])) { lista[i].statusVisto = lista[i].status; gravarLista(lista); return true; }
+  return false;
+}
+
+function marcarAvaliado(protocolo) {
+  var lista = lerLista();
+  var i = acharIndice(lista, protocolo);
+  if (i >= 0) { lista[i].avaliado = true; gravarLista(lista); }
 }
 
 function marcarNaoEncontrado(protocolo) {
@@ -487,12 +557,34 @@ function etapasHtml(status) {
   return html + '</ol>';
 }
 
+function notasHtml() {
+  var html = '<div class="notas" role="group" aria-label="Nota de 1 a 5">';
+  for (var n = 1; n <= 5; n++) {
+    html += '<button type="button" data-nota="' + n + '" aria-label="Nota ' + n + ' de 5" aria-pressed="false">' + n + '</button>';
+  }
+  return html + '</div><div class="notas-legenda"><span>Ruim</span><span>Ótimo</span></div>';
+}
+
+function pesquisaAtendimentoHtml(c) {
+  if (c.avaliado) { return '<p class="dica" style="margin-top:14px">Obrigado pela sua avaliação do atendimento.</p>'; }
+  return '<div class="pesquisa-atend" data-protocolo="' + escapar(c.protocolo) + '">' +
+    '<p class="pesquisa-titulo">Como foi o atendimento?</p>' + notasHtml() +
+    '<div class="detalhe" hidden>' +
+    '<label class="rotulo-acao">Quer contar mais? (opcional)</label>' +
+    '<textarea maxlength="500" aria-label="Comentário sobre o atendimento"></textarea>' +
+    '<p class="dica">Sua avaliação fica ligada a este chamado.</p>' +
+    '<button class="mini cheio" type="button" data-enviar-aval style="margin-top:10px">Enviar avaliação</button></div>' +
+    '<p class="dica msg-aval" aria-live="polite"></p></div>';
+}
+
 function cartaoHtml(c) {
   var cancelado = c.status === 'Cancelado';
-  var html = '<details class="cartao" data-protocolo="' + escapar(c.protocolo) + '">' +
+  var novo = temNovidade(c);
+  var html = '<details class="cartao' + (novo ? ' novo' : '') + '" data-protocolo="' + escapar(c.protocolo) + '">' +
     '<summary><span class="cartao-titulo"><strong>' + escapar(c.protocolo) + '</strong>' +
     '<span class="cartao-sala">' + escapar(c.sala) + '</span></span>' +
-    '<span class="chip ' + classeStatus(c.status) + '">' + escapar(c.status || 'Sem status') + '</span></summary>' +
+    '<span class="direita">' + (novo ? '<span class="etiqueta-nova">Atualizado</span>' : '') +
+    '<span class="chip ' + classeStatus(c.status) + '">' + escapar(c.status || 'Sem status') + '</span></span></summary>' +
     '<div class="cartao-corpo">' +
     '<p class="meta">' + (c.abertura ? 'Aberto em ' + escapar(c.abertura) : '') + '</p>' +
     etapasHtml(c.status);
@@ -500,6 +592,7 @@ function cartaoHtml(c) {
     html += '<div class="solucao"><strong>' + (cancelado ? 'Motivo' : 'O que foi feito') + '</strong>' + escapar(c.solucao) + '</div>';
   }
   if (c.concluido) { html += '<p class="meta">Concluído em ' + escapar(c.concluido) + '</p>'; }
+  if (c.status === 'Resolvido') { html += pesquisaAtendimentoHtml(c); }
   if (c.aviso) { html += '<p class="aviso-cartao">' + escapar(c.aviso) + '</p>'; }
   html += '<button class="mini perigo" type="button" data-remover="' + escapar(c.protocolo) + '">Remover da lista</button>' +
     '</div></details>';
@@ -519,6 +612,7 @@ function desenharLista(abrirProtocolo) {
       }
     }
   }
+  atualizarNovidades();
 }
 
 function hora() {
@@ -536,6 +630,7 @@ function atualizarLista(todos) {
   if (!alvo.length) return Promise.resolve();
 
   var falhou = false;
+  var antes = JSON.stringify(lerLista());
   $('btn-atualizar').disabled = true;
   $('estado-lista').textContent = 'Atualizando...';
   ultimaAtualizacao = Date.now();
@@ -546,13 +641,16 @@ function atualizarLista(todos) {
       else { marcarNaoEncontrado(c.protocolo); }
     }).catch(function () { falhou = true; });
   })).then(function () {
-    var abertos = [];
-    var cartoes = document.querySelectorAll('#lista-chamados details');
-    for (var i = 0; i < cartoes.length; i++) { if (cartoes[i].open) abertos.push(cartoes[i].getAttribute('data-protocolo')); }
-    desenharLista();
-    cartoes = document.querySelectorAll('#lista-chamados details');
-    for (var j = 0; j < cartoes.length; j++) {
-      if (abertos.indexOf(cartoes[j].getAttribute('data-protocolo')) !== -1) cartoes[j].open = true;
+    // Só redesenha se algo mudou, para não apagar um comentário que a pessoa esteja digitando
+    if (JSON.stringify(lerLista()) !== antes) {
+      var abertos = [];
+      var cartoes = document.querySelectorAll('#lista-chamados details');
+      for (var i = 0; i < cartoes.length; i++) { if (cartoes[i].open) abertos.push(cartoes[i].getAttribute('data-protocolo')); }
+      desenharLista();
+      cartoes = document.querySelectorAll('#lista-chamados details');
+      for (var j = 0; j < cartoes.length; j++) {
+        if (abertos.indexOf(cartoes[j].getAttribute('data-protocolo')) !== -1) cartoes[j].open = true;
+      }
     }
     $('estado-lista').textContent = falhou
       ? 'Sem conexão no momento. Mostrando o último andamento salvo.'
@@ -572,13 +670,162 @@ function mostrarMensagem(msg, erro) {
 
 $('btn-atualizar').onclick = function () { atualizarLista(true); };
 
+function selecionarNota(container, botao) {
+  var botoes = container.querySelectorAll('[data-nota]');
+  for (var i = 0; i < botoes.length; i++) { botoes[i].setAttribute('aria-pressed', String(botoes[i] === botao)); }
+}
+
+function postar(corpo) {
+  // Corpo em texto simples: evita a verificação prévia (preflight) do navegador.
+  return fetch(CONFIG.CONSULTA_URL, { method: 'POST', body: JSON.stringify(corpo) })
+    .then(function (r) { return r.json(); });
+}
+
+function enviarAvaliacaoAtendimento(pesquisa, botao) {
+  var protocolo = pesquisa.getAttribute('data-protocolo');
+  var marcado = pesquisa.querySelector('[data-nota][aria-pressed="true"]');
+  var msg = pesquisa.querySelector('.msg-aval');
+  if (!marcado) { msg.textContent = 'Escolha uma nota de 1 a 5.'; return; }
+  var lista = lerLista();
+  var i = acharIndice(lista, protocolo);
+  if (i < 0) return;
+
+  botao.disabled = true; msg.textContent = 'Enviando...';
+  postar({
+    acao: 'avaliar', tipo: 'atendimento', nota: Number(marcado.getAttribute('data-nota')),
+    comentario: pesquisa.querySelector('textarea').value.trim(), protocolo: protocolo, email: lista[i].email
+  }).then(function (d) {
+    if (d && (d.ok || d.erro === 'ja_avaliado')) {
+      marcarAvaliado(protocolo);
+      desenharLista(protocolo);
+    } else {
+      botao.disabled = false;
+      msg.textContent = (d && d.erro === 'muitas_avaliacoes')
+        ? 'Muitas avaliações no momento. Tente mais tarde.' : 'Não foi possível enviar agora. Tente de novo.';
+    }
+  }).catch(function () { botao.disabled = false; msg.textContent = 'Sem conexão. Tente de novo.'; });
+}
+
 $('lista-chamados').addEventListener('click', function (ev) {
   var alvo = ev.target;
-  var protocolo = alvo && alvo.getAttribute ? alvo.getAttribute('data-remover') : null;
-  if (!protocolo) return;
-  removerChamado(protocolo);
-  desenharLista();
+  if (!alvo || !alvo.getAttribute) return;
+
+  var remover = alvo.getAttribute('data-remover');
+  if (remover) { removerChamado(remover); desenharLista(); return; }
+
+  var pesquisa = alvo.closest ? alvo.closest('.pesquisa-atend') : null;
+  if (!pesquisa) return;
+  if (alvo.hasAttribute('data-nota')) {
+    selecionarNota(pesquisa, alvo);
+    pesquisa.querySelector('.detalhe').hidden = false;
+  } else if (alvo.hasAttribute('data-enviar-aval')) {
+    enviarAvaliacaoAtendimento(pesquisa, alvo);
+  }
 });
+
+/* Ao abrir um cartão com novidade, ela passa a contar como vista */
+$('lista-chamados').addEventListener('toggle', function (ev) {
+  var d = ev.target;
+  if (d && d.open && d.getAttribute && marcarVisto(d.getAttribute('data-protocolo'))) {
+    d.classList.remove('novo');
+    var etiqueta = d.querySelector('.etiqueta-nova');
+    if (etiqueta) { etiqueta.parentNode.removeChild(etiqueta); }
+    atualizarNovidades();
+  }
+}, true);
+
+/* ---------- aviso de novidades dentro do app ---------- */
+function atualizarNovidades() {
+  var lista = lerLista();
+  var novos = lista.filter(temNovidade);
+  var n = novos.length;
+  $('pino-novidades').hidden = n === 0;
+  $('pino-novidades').textContent = String(n);
+  $('btn-visto-todos').hidden = n === 0;
+
+  var naAcompanhar = $('tela-acompanhar').classList.contains('ativa');
+  $('faixa-novidades').hidden = n === 0 || naAcompanhar;
+  if (n === 1) {
+    var c = novos[0];
+    $('faixa-texto').textContent = 'Seu chamado ' + c.protocolo + ' agora está ' + String(c.status).toLowerCase() + '.' +
+      (c.status === 'Resolvido' && !c.avaliado ? ' Conte como foi o atendimento.' : '');
+  } else if (n > 1) {
+    $('faixa-texto').textContent = n + ' dos seus chamados tiveram novidades.';
+  }
+  document.title = (n ? '(' + n + ') ' : '') + 'Chamados de manutenção - UniMater';
+  try { if (navigator.setAppBadge) { if (n) { navigator.setAppBadge(n); } else { navigator.clearAppBadge(); } } } catch (e) {}
+}
+
+$('faixa-ver').onclick = function () { mostrar('acompanhar'); };
+$('btn-visto-todos').onclick = function () {
+  var lista = lerLista();
+  lista.forEach(function (c) { c.statusVisto = c.status; });
+  gravarLista(lista);
+  desenharLista();
+};
+
+/* ---------- avaliação do app (depois de abrir o chamado) ---------- */
+var DIAS_ENTRE_PERGUNTAS = 3;
+var notaApp = 0;
+$('avaliar-app-notas').innerHTML = notasHtml();
+
+function verificarPesquisaApp() {
+  if (!CONFIG.CONSULTA_URL) return;
+  var abriu = Number(ler('chamados.abriuEm') || 0);
+  if (!abriu) return;
+  var passou = Date.now() - abriu;
+  if (passou < 15000) { setTimeout(verificarPesquisaApp, 15500 - passou); return; }  // ainda no formulário
+  var ultima = Number(ler('chamados.ultimaPesquisa') || 0);
+  if (passou > 24 * 3600 * 1000 || Date.now() - ultima < DIAS_ENTRE_PERGUNTAS * 86400000) {
+    apagar('chamados.abriuEm');
+    return;
+  }
+  $('avaliar-app').hidden = false;
+}
+
+function encerrarPesquisaApp(agradecimento) {
+  guardar('chamados.ultimaPesquisa', String(Date.now()));
+  apagar('chamados.abriuEm');
+  if (!agradecimento) { $('avaliar-app').hidden = true; return; }
+  $('avaliar-app-corpo').hidden = true;
+  $('avaliar-app-msg').textContent = agradecimento;
+  setTimeout(function () {
+    $('avaliar-app').hidden = true;
+    $('avaliar-app-corpo').hidden = false;
+    $('avaliar-app-detalhe').hidden = true;
+    $('avaliar-app-msg').textContent = '';
+    $('avaliar-app-texto').value = '';
+    notaApp = 0;
+  }, 3000);
+}
+
+$('avaliar-app-notas').addEventListener('click', function (ev) {
+  var alvo = ev.target;
+  if (!alvo || !alvo.hasAttribute || !alvo.hasAttribute('data-nota')) return;
+  notaApp = Number(alvo.getAttribute('data-nota'));
+  selecionarNota($('avaliar-app-notas'), alvo);
+  $('avaliar-app-detalhe').hidden = false;
+});
+
+$('avaliar-app-enviar').onclick = function () {
+  if (!notaApp) { $('avaliar-app-msg').textContent = 'Escolha uma nota de 1 a 5.'; return; }
+  var botao = $('avaliar-app-enviar');
+  botao.disabled = true; $('avaliar-app-msg').textContent = 'Enviando...';
+  postar({ acao: 'avaliar', tipo: 'app', nota: notaApp, comentario: $('avaliar-app-texto').value.trim() })
+    .then(function (d) {
+      if (d && d.ok) { encerrarPesquisaApp('Obrigado pela sua avaliação!'); }
+      else { $('avaliar-app-msg').textContent = 'Não foi possível enviar agora. Tente de novo.'; }
+    })
+    .catch(function () { $('avaliar-app-msg').textContent = 'Sem conexão. Tente de novo.'; })
+    .finally(function () { botao.disabled = false; });
+};
+$('avaliar-app-depois').onclick = function () { encerrarPesquisaApp(''); };
+
+document.addEventListener('visibilitychange', function () {
+  if (!document.hidden) { verificarPesquisaApp(); atualizarSeNecessario(); }
+});
+window.addEventListener('pageshow', verificarPesquisaApp);
+verificarPesquisaApp();
 
 $('btn-consultar').onclick = function () {
   var protocolo = $('protocolo').value.trim().toUpperCase();
@@ -659,16 +906,14 @@ function iniciarGoogle() {
 
 function abrirEquipe() {
   mostrar('equipe');
-  if (equipe.pessoa) { carregarChamados(); return; }
+  if (equipe.pessoa) { carregarChamados(); carregarAvaliacoes(); return; }
   carregarGoogle(iniciarGoogle);
 }
 
 function api(acao, dados) {
   var corpo = { acao: acao, token: equipe.token };
   for (var k in (dados || {})) { corpo[k] = dados[k]; }
-  // Corpo em texto simples: evita a verificação prévia (preflight) do navegador.
-  return fetch(CONFIG.CONSULTA_URL, { method: 'POST', body: JSON.stringify(corpo) })
-    .then(function (r) { return r.json(); });
+  return postar(corpo);
 }
 
 function aoReceberCredencial(resposta) {
@@ -685,6 +930,7 @@ function aoReceberCredencial(resposta) {
       $('equipe-painel').hidden = false;
       mostrar('equipe');
       carregarChamados();
+      carregarAvaliacoes();
     } else if (d && d.erro === 'sem_permissao') {
       sairEquipe(false);
       msgEquipe('A conta ' + d.email + ' não está autorizada. Peça para ser adicionada à aba Equipe da planilha.', true);
@@ -738,6 +984,23 @@ function carregarChamados(mensagemFinal) {
     equipe.carregando = false;
     $('btn-recarregar').disabled = false;
   });
+}
+
+function carregarAvaliacoes() {
+  api('avaliacoes').then(function (d) {
+    if (d && (d.erro === 'login_invalido' || d.erro === 'sem_permissao')) { sessaoExpirou(); return; }
+    if (!d || !d.ok) { $('aval-resumo').textContent = 'Não foi possível carregar.'; return; }
+    var a = d.avaliacoes;
+    function linha(rotulo, x) {
+      return rotulo + ': ' + (x.total ? String(x.media).replace('.', ',') + ' de 5 (' + x.total + ')' : 'sem avaliações');
+    }
+    $('aval-resumo').textContent = linha('App', a.app) + ' · ' + linha('Atendimento', a.atendimento);
+    $('aval-corpo').innerHTML = a.recentes.length ? a.recentes.map(function (r) {
+      return '<p class="linha"><strong>' + escapar(r.tipo) + ' · ' + r.nota + ' de 5 · ' + escapar(r.data) +
+        (r.protocolo ? ' · ' + escapar(r.protocolo) + ' · ' + escapar(r.sala) : '') + '</strong>' +
+        escapar(r.comentario || 'Sem comentário') + '</p>';
+    }).join('') : '<p class="vazio">Ainda não há avaliações.</p>';
+  }).catch(function () { $('aval-resumo').textContent = 'Sem conexão.'; });
 }
 
 function passaFiltro(c) {
@@ -858,7 +1121,7 @@ for (var f = 0; f < filtros.length; f++) {
   });
 }
 $('busca').addEventListener('input', desenharEquipe);
-$('btn-recarregar').onclick = carregarChamados;
+$('btn-recarregar').onclick = function () { carregarChamados(); carregarAvaliacoes(); };
 $('btn-sair').onclick = function () { sairEquipe(true); mostrar('abrir'); };
 $('voltar-equipe').onclick = function () { mostrar('abrir'); };
 $('link-equipe').onclick = function () { abrirEquipe(); };
