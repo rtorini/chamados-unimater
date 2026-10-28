@@ -345,6 +345,19 @@
         <div class="cartao-corpo" id="aval-corpo"></div>
       </details>
 
+      <details id="equipe-push" class="cartao" style="margin-top:12px" hidden>
+        <summary><span class="cartao-titulo"><strong>Notificações neste aparelho</strong><span class="cartao-sala" id="push-resumo">Verificando...</span></span></summary>
+        <div class="cartao-corpo">
+          <p class="texto" id="push-texto"></p>
+          <div class="acoes">
+            <button id="btn-push-ativar" class="mini cheio" type="button" hidden>Ativar notificações</button>
+            <button id="btn-push-teste" class="mini" type="button" hidden>Enviar teste</button>
+            <button id="btn-push-desativar" class="mini perigo" type="button" hidden style="margin-top:0">Desativar</button>
+          </div>
+          <p class="dica" id="push-msg" aria-live="polite"></p>
+        </div>
+      </details>
+
       <div class="filtros" role="group" aria-label="Filtrar chamados">
         <button class="filtro" type="button" data-filtro="abertos" aria-pressed="true">Em aberto</button>
         <button class="filtro" type="button" data-filtro="resolvidos" aria-pressed="false">Resolvidos</button>
@@ -389,7 +402,14 @@ var CONFIG = {
 
   // ID de cliente do login Google (termina em .apps.googleusercontent.com).
   // Deixe vazio ('') para desligar a área da equipe.
-  GOOGLE_CLIENT_ID: '180935129197-r4df4m7icbn2e5aed3gismkm9qnvn1q7.apps.googleusercontent.com'
+  GOOGLE_CLIENT_ID: '180935129197-r4df4m7icbn2e5aed3gismkm9qnvn1q7.apps.googleusercontent.com',
+
+  // Notificações push da equipe (Firebase). Deixe vazio para desligar.
+  // Valores do console do Firebase: Configurações do projeto > Seus aplicativos > app da Web.
+  FIREBASE: { apiKey: '', projectId: '', messagingSenderId: '', appId: '' },
+  // Chave pública VAPID: Configurações do projeto > Cloud Messaging > Certificados push da Web.
+  FIREBASE_VAPID: '',
+  FIREBASE_SDK: '10.14.1'
 };
 
 /* Lista de salas: precisa ser idêntica às opções do formulário */
@@ -861,7 +881,7 @@ desenharLista();
 if (CONFIG.CONSULTA_URL && lerLista().length) { atualizarLista(false); }
 
 /* ---------- área da equipe ---------- */
-var equipe = { token: '', pessoa: null, chamados: [], filtro: 'abertos', googlePronto: false, carregando: false };
+var equipe = { token: '', sessao: ler('chamados.sessao') || '', pessoa: null, chamados: [], filtro: 'abertos', googlePronto: false, carregando: false };
 var ERROS_EQUIPE = {
   solucao_obrigatoria: 'Escreva o que foi feito antes de confirmar.',
   planilha_mudou: 'A planilha mudou. Atualize a lista e tente de novo.',
@@ -906,12 +926,75 @@ function iniciarGoogle() {
 
 function abrirEquipe() {
   mostrar('equipe');
-  if (equipe.pessoa) { carregarChamados(); carregarAvaliacoes(); return; }
+  if (equipe.pessoa) { carregarChamados(); carregarAvaliacoes(); iniciarPush(); return; }
+  if (equipe.sessao) { retomarSessao(); return; }
   carregarGoogle(iniciarGoogle);
 }
 
+function erroDeLogin(d) {
+  return !!(d && (d.erro === 'login_invalido' || d.erro === 'sessao_invalida' || d.erro === 'sem_permissao'));
+}
+
+function emIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+function emModoApp() { return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+
+function descreverAparelho() {
+  var ua = navigator.userAgent || '';
+  var so = /Android/.test(ua) ? 'Android' : /iPhone|iPad|iPod/.test(ua) ? 'iPhone/iPad' : /Windows/.test(ua) ? 'Windows'
+    : /Mac/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : 'Aparelho';
+  var nav = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : /Firefox\//.test(ua) ? 'Firefox' : '';
+  return so + (nav ? ' - ' + nav : '') + (emModoApp() ? ' (app instalado)' : '');
+}
+
+function limparSessaoLocal() {
+  equipe.sessao = '';
+  apagar('chamados.sessao');
+}
+
+/* O aparelho de notificações pertence a quem o ativou: se outra pessoa entrar, precisa ativar de novo */
+function esquecerAparelhoPush() {
+  apagar('chamados.pushToken');
+  apagar('chamados.pushEmail');
+}
+
+function entrarNoPainel(d) {
+  equipe.pessoa = d;
+  if (ler('chamados.pushToken') && ler('chamados.pushEmail') !== d.email) { esquecerAparelhoPush(); }
+  guardar('chamados.equipe', '1');
+  $('aba-equipe').hidden = false;
+  $('equipe-nome').textContent = d.nome;
+  $('equipe-email').textContent = d.email;
+  $('equipe-login').hidden = true;
+  $('equipe-painel').hidden = false;
+  mostrar('equipe');
+  carregarChamados();
+  carregarAvaliacoes();
+  iniciarPush();
+}
+
+/* Reabre o painel com a sessão guardada no aparelho, sem pedir o Google de novo */
+function retomarSessao() {
+  msgEquipe('Entrando...', false);
+  api('eu').then(function (d) {
+    if (d && d.ok) { msgEquipe('', false); entrarNoPainel(d); }
+    else if (d && d.erro === 'sem_permissao') {
+      limparSessaoLocal();
+      msgEquipe('A conta ' + d.email + ' não está mais autorizada. Peça para ser adicionada à aba Equipe da planilha.', true);
+    } else if (erroDeLogin(d)) {
+      limparSessaoLocal();
+      msgEquipe('Sua sessão terminou. Entre com o Google de novo.', true);
+      carregarGoogle(iniciarGoogle);
+    } else {
+      msgEquipe(ERROS_EQUIPE[d && d.erro] || 'Não foi possível entrar agora.', true);
+    }
+  }).catch(function () {
+    msgEquipe('Sem conexão com o servidor. Toque em "Equipe" para tentar de novo.', true);
+  });
+}
+
 function api(acao, dados) {
-  var corpo = { acao: acao, token: equipe.token };
+  var corpo = { acao: acao };
+  if (equipe.sessao) { corpo.sessao = equipe.sessao; } else { corpo.token = equipe.token; }
   for (var k in (dados || {})) { corpo[k] = dados[k]; }
   return postar(corpo);
 }
@@ -919,18 +1002,12 @@ function api(acao, dados) {
 function aoReceberCredencial(resposta) {
   equipe.token = resposta.credential || '';
   msgEquipe('Verificando o seu acesso...', false);
-  api('eu').then(function (d) {
+  // O login com o Google vale uma vez: o servidor devolve uma sessão que fica guardada no aparelho
+  postar({ acao: 'entrar', token: equipe.token, aparelho: descreverAparelho() }).then(function (d) {
     if (d && d.ok) {
-      equipe.pessoa = d;
-      guardar('chamados.equipe', '1');
-      $('aba-equipe').hidden = false;
-      $('equipe-nome').textContent = d.nome;
-      $('equipe-email').textContent = d.email;
-      $('equipe-login').hidden = true;
-      $('equipe-painel').hidden = false;
-      mostrar('equipe');
-      carregarChamados();
-      carregarAvaliacoes();
+      if (d.sessao) { equipe.sessao = d.sessao; guardar('chamados.sessao', d.sessao); }
+      msgEquipe('', false);
+      entrarNoPainel(d);
     } else if (d && d.erro === 'sem_permissao') {
       sairEquipe(false);
       msgEquipe('A conta ' + d.email + ' não está autorizada. Peça para ser adicionada à aba Equipe da planilha.', true);
@@ -958,9 +1035,27 @@ function sairEquipe(limparMarca) {
 
 /* A sessão (token) vale cerca de 1 hora; ao expirar, pede o login de novo */
 function sessaoExpirou() {
+  limparSessaoLocal();
   sairEquipe(false);
-  msgEquipe('Sua sessão expirou. Entre com o Google de novo.', true);
+  msgEquipe('Sua sessão terminou. Entre com o Google de novo.', true);
+  carregarGoogle(iniciarGoogle);
   if (window.google && google.accounts && google.accounts.id) { try { google.accounts.id.prompt(); } catch (e) {} }
+}
+
+/* "Sair": encerra a sessão no servidor e para as notificações deste aparelho */
+function sairDeVez() {
+  var fcm = ler('chamados.pushToken');
+  var tarefas = [];
+  if (fcm) { tarefas.push(api('push_remover', { fcm: fcm }).catch(function () {})); }
+  if (push.messaging) { try { tarefas.push(push.messaging.deleteToken().catch(function () {})); } catch (e) {} }
+  Promise.all(tarefas).then(function () {
+    return api('sair').catch(function () {});
+  }).then(function () {
+    limparSessaoLocal();
+    esquecerAparelhoPush();
+    sairEquipe(true);
+    mostrar('abrir');
+  });
 }
 
 function carregarChamados(mensagemFinal) {
@@ -973,7 +1068,7 @@ function carregarChamados(mensagemFinal) {
       equipe.chamados = d.chamados || [];
       desenharEquipe();
       $('equipe-estado').textContent = mensagemFinal || ('Atualizado às ' + hora() + '.');
-    } else if (d && (d.erro === 'login_invalido' || d.erro === 'sem_permissao')) {
+    } else if (erroDeLogin(d)) {
       sessaoExpirou();
     } else {
       $('equipe-estado').textContent = ERROS_EQUIPE[d && d.erro] || 'Não foi possível carregar.';
@@ -988,7 +1083,7 @@ function carregarChamados(mensagemFinal) {
 
 function carregarAvaliacoes() {
   api('avaliacoes').then(function (d) {
-    if (d && (d.erro === 'login_invalido' || d.erro === 'sem_permissao')) { sessaoExpirou(); return; }
+    if (erroDeLogin(d)) { sessaoExpirou(); return; }
     if (!d || !d.ok) { $('aval-resumo').textContent = 'Não foi possível carregar.'; return; }
     var a = d.avaliacoes;
     function linha(rotulo, x) {
@@ -1073,7 +1168,7 @@ function enviarAtualizacao(cartao, status, solucao, botao) {
       if (d && d.ok) {
         carregarChamados((protocolo || 'Chamado') + ' atualizado.' +
           (d.avisoEnviado ? ' O professor foi avisado por e-mail.' : ' Não foi possível enviar o e-mail de aviso.'));
-      } else if (d && (d.erro === 'login_invalido' || d.erro === 'sem_permissao')) {
+      } else if (erroDeLogin(d)) {
         sessaoExpirou();
       } else {
         for (var k = 0; k < botoes.length; k++) { botoes[k].disabled = false; }
@@ -1122,7 +1217,7 @@ for (var f = 0; f < filtros.length; f++) {
 }
 $('busca').addEventListener('input', desenharEquipe);
 $('btn-recarregar').onclick = function () { carregarChamados(); carregarAvaliacoes(); };
-$('btn-sair').onclick = function () { sairEquipe(true); mostrar('abrir'); };
+$('btn-sair').onclick = sairDeVez;
 $('voltar-equipe').onclick = function () { mostrar('abrir'); };
 $('link-equipe').onclick = function () { abrirEquipe(); };
 
@@ -1130,6 +1225,159 @@ if (equipeAtiva()) {
   $('rodape-equipe').hidden = false;
   if (ler('chamados.equipe') === '1') { $('aba-equipe').hidden = false; }
 }
+
+/* ---------- notificações push (Firebase) ---------- */
+var push = { messaging: null };
+
+function pushConfigurado() {
+  var f = CONFIG.FIREBASE || {};
+  return !!(f.apiKey && f.projectId && f.messagingSenderId && f.appId && CONFIG.FIREBASE_VAPID);
+}
+function pushSuportado() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+function pushMsg(t) { $('push-msg').textContent = t || ''; }
+
+function mostrarCartaoPush(estado, resumo, texto) {
+  $('equipe-push').hidden = false;
+  $('push-resumo').textContent = resumo;
+  $('push-texto').textContent = texto || '';
+  $('btn-push-ativar').hidden = estado !== 'inativo';
+  $('btn-push-teste').hidden = estado !== 'ativo';
+  $('btn-push-desativar').hidden = estado !== 'ativo';
+  if (estado === 'inativo' || (estado === 'nenhum' && texto)) { $('equipe-push').open = true; }
+}
+
+function carregarScript(src, depois, erro) {
+  var s = document.createElement('script');
+  s.src = src; s.async = true; s.onload = depois; s.onerror = erro;
+  document.head.appendChild(s);
+}
+
+/* Carrega o Firebase só quando a equipe abre o painel */
+function carregarFirebase(depois, erro) {
+  if (push.messaging) { depois(); return; }
+  var base = 'https://www.gstatic.com/firebasejs/' + CONFIG.FIREBASE_SDK + '/';
+  carregarScript(base + 'firebase-app-compat.js', function () {
+    carregarScript(base + 'firebase-messaging-compat.js', function () {
+      try {
+        if (!firebase.apps.length) { firebase.initializeApp(CONFIG.FIREBASE); }
+        push.messaging = firebase.messaging();
+        depois();
+      } catch (e) { erro(e); }
+    }, erro);
+  }, erro);
+}
+
+function obterTokenPush() {
+  return navigator.serviceWorker.ready.then(function (reg) {
+    return push.messaging.getToken({ vapidKey: CONFIG.FIREBASE_VAPID, serviceWorkerRegistration: reg });
+  });
+}
+
+function iniciarPush() {
+  if (!pushConfigurado()) { $('equipe-push').hidden = true; return; }
+  if (!pushSuportado()) {
+    if (emIOS() && !emModoApp()) {
+      mostrarCartaoPush('nenhum', 'Instale o app para ativar',
+        'No iPhone, as notificações só funcionam com o app instalado na tela inicial: toque em Compartilhar e depois em "Adicionar à Tela de Início". Depois abra o app por esse ícone e volte aqui.');
+    } else {
+      mostrarCartaoPush('nenhum', 'Indisponível neste navegador', 'Este navegador não oferece notificações push.');
+    }
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    mostrarCartaoPush('nenhum', 'Bloqueadas',
+      'As notificações estão bloqueadas para este app no navegador. Libere em Configurações do site > Notificações e volte aqui.');
+    return;
+  }
+  mostrarCartaoPush('nenhum', 'Verificando...', '');
+  api('push_status').then(function (d) {
+    if (erroDeLogin(d)) { sessaoExpirou(); return; }
+    if (!d || !d.ok) { mostrarCartaoPush('nenhum', 'Indisponível', 'Não foi possível consultar o servidor agora.'); return; }
+    if (!d.servidor) {
+      mostrarCartaoPush('nenhum', 'Servidor não configurado',
+        'O servidor ainda não está configurado para enviar notificações. Peça ao administrador para configurar o Firebase.');
+      return;
+    }
+    if (Notification.permission === 'granted' && ler('chamados.pushToken')) {
+      mostrarCartaoPush('ativo', 'Ativas neste aparelho', 'Você recebe um aviso quando entrar um chamado novo.');
+      sincronizarPush();
+    } else {
+      mostrarCartaoPush('inativo', 'Desativadas neste aparelho', 'Ative para receber um aviso no celular quando entrar um chamado novo.');
+    }
+  }).catch(function () { mostrarCartaoPush('nenhum', 'Sem conexão', ''); });
+}
+
+/* O código do aparelho pode mudar: se mudou, registra o novo */
+function sincronizarPush() {
+  carregarFirebase(function () {
+    obterTokenPush().then(function (tk) {
+      if (tk && tk !== ler('chamados.pushToken')) {
+        api('push_registrar', { fcm: tk, aparelho: descreverAparelho() }).then(function (d) {
+          if (d && d.ok) { guardar('chamados.pushToken', tk); guardar('chamados.pushEmail', equipe.pessoa ? equipe.pessoa.email : ''); }
+        });
+      }
+    }).catch(function () {});
+  }, function () {});
+}
+
+$('btn-push-ativar').onclick = function () {
+  pushMsg('Pedindo permissão...');
+  Notification.requestPermission().then(function (permissao) {
+    if (permissao !== 'granted') { pushMsg('Permissão não concedida.'); iniciarPush(); return; }
+    pushMsg('Ativando...');
+    carregarFirebase(function () {
+      obterTokenPush().then(function (tk) {
+        if (!tk) { throw new Error('o Firebase não devolveu o código do aparelho'); }
+        return api('push_registrar', { fcm: tk, aparelho: descreverAparelho() }).then(function (d) {
+          if (d && d.ok) {
+            guardar('chamados.pushToken', tk); guardar('chamados.pushEmail', equipe.pessoa ? equipe.pessoa.email : '');
+            iniciarPush();
+            pushMsg('Notificações ativadas neste aparelho. Toque em "Enviar teste".');
+          } else if (erroDeLogin(d)) { sessaoExpirou(); }
+          else { pushMsg('O servidor não aceitou o aparelho (' + (d && d.erro) + ').'); }
+        });
+      }).catch(function (e) { pushMsg('Não foi possível ativar: ' + (e && e.message ? e.message : e)); });
+    }, function () { pushMsg('Não foi possível carregar o serviço de notificações. Verifique a conexão.'); });
+  });
+};
+
+$('btn-push-teste').onclick = function () {
+  pushMsg('Enviando teste...');
+  api('push_teste').then(function (d) {
+    if (erroDeLogin(d)) { sessaoExpirou(); return; }
+    if (!d || !d.ok) { pushMsg('Não foi possível enviar o teste.'); return; }
+    if (d.enviados > 0) {
+      pushMsg('Teste enviado a ' + d.enviados + ' aparelho(s)' + (d.falhas ? ', com ' + d.falhas + ' falha(s)' : '') +
+        '. A notificação deve aparecer em instantes.' + (d.erro ? ' Detalhe: ' + d.erro : ''));
+    } else {
+      pushMsg('Nada foi enviado.' + (d.erro ? ' Detalhe: ' + d.erro : ' Nenhum aparelho cadastrado.'));
+    }
+  }).catch(function () { pushMsg('Sem conexão. Tente de novo.'); });
+};
+
+$('btn-push-desativar').onclick = function () {
+  var tk = ler('chamados.pushToken');
+  var tarefas = [];
+  if (tk) { tarefas.push(api('push_remover', { fcm: tk }).catch(function () {})); }
+  if (push.messaging) { try { tarefas.push(push.messaging.deleteToken().catch(function () {})); } catch (e) {} }
+  Promise.all(tarefas).then(function () {
+    esquecerAparelhoPush();
+    iniciarPush();
+    pushMsg('Notificações desativadas neste aparelho.');
+  });
+};
+
+/* Mensagens vindas do service worker: chamado novo ou clique na notificação */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', function (ev) {
+    var m = ev.data || {};
+    if (m.tipo === 'push' && equipe.pessoa) { carregarChamados(); }
+    if (m.tipo === 'abrir-equipe' && equipeAtiva()) { abrirEquipe(); }
+  });
+}
+
+/* Link da notificação: abre direto na área da equipe */
+if (equipeAtiva() && /[?&]equipe=1(&|$)/.test(location.search)) { abrirEquipe(); }
 
 /* ---------- instalação (Android/Chrome/Edge) ---------- */
 var eventoInstalar = null;
